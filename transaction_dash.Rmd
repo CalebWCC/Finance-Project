@@ -1,0 +1,84 @@
+---
+title: "Personal spending"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(flexdashboard)
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Transactions by month
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(lubridate)
+
+df<-read.csv("Transactions-2023-06-11.csv")
+
+# Converting the date column to a usable format
+df$Date <- mdy(df$Date)
+df$mon_year <- format(df$Date, "%y-%m")
+
+# Aggregating the two values we care about. In this case, the amount spent and the amount earned
+mon_sum <- aggregate(Debit ~ mon_year, df, FUN = sum)
+mon_spent <- aggregate(Credit ~ mon_year, df, FUN = sum)
+
+# Creating a new data frame to combine the new columns we just created, and renaming the columns to being more readable.
+transactions <- data.frame(mon_sum$mon_year, mon_sum$Debit, 
+                           mon_spent$Credit)
+colnames(transactions) <- c("Date", "Spent", "Earned")
+
+# Pivoting the new data set to the long format needed to graph the values.
+transactions<- transactions %>% pivot_longer(cols = c("Spent", "Earned"),
+                                             values_to = "Amount")
+
+# Adding a new column to code the colors we want for spending and earning in the graph we create later.
+transactions$Type <- ifelse(transactions$name == "Spent", "red", "darkgreen")
+
+# Creating the chart we want to present.
+ggplot(transactions, aes(x = Date, y = Amount, fill = Type)) + 
+  geom_bar(stat = "identity")+
+  labs(x = "Date", y = "Amount") +
+  scale_fill_manual(values = c("darkgreen", "red"), 
+                    labels = c("Earnings", "Transactions"))+
+  theme_bw() + theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+Column {data-width=650}
+------------------------------------------------
+
+### Transactions by Category from 2021 - 2023
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+df<-read.csv("Transactions-2023-06-11.csv")
+
+# Aggregating the data by the categories of transactions. Also needed to filter out transactions that did not have a category, since so many transactions fit this category and made the chart difficult to read.
+spending_by_type <- aggregate(Debit ~ Category, df, FUN = "sum")
+spending_by_type <- spending_by_type %>% filter(Category != "")
+
+# Creating a plot to show the transactions organized by the type of transactions.
+ggplot(spending_by_type, aes(x = Category, y = Debit, fill = "red")) + 
+  geom_bar(stat = "identity") + 
+  labs(x = "Category", y = "Amount Spent")+
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) + coord_flip()
+
+
+```
+
+
+
+
